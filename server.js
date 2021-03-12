@@ -15,14 +15,14 @@ const options = {
 
 const express = require('express');
 const app = express();
-const http_server = https.createServer(options, app);
+const https_server = https.createServer(options, app);
 
 // public root
 app.use(express.static(path.resolve(__dirname, 'public')));
 
 // start server
 const PORT = 5000;
-http_server.listen(PORT, () => {
+https_server.listen(PORT, () => {
     console.log(`Listening on port: ${PORT}`);
 });
 
@@ -31,7 +31,7 @@ WEBSOCKET COMMUNICATION
  */
 const RequestManager = require('./app/RequestManager');
 require('dotenv').config();
-const io = require('socket.io')(http_server, cookie=false);
+const io = require('socket.io')(https_server, {cookie: false});
 
 io.on('connection', socket => {
     socket.on('request', (IN, callback) => {

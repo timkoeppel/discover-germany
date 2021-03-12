@@ -6,7 +6,7 @@ const Connection = {
     },
 
     request: function (type, data) {
-        console.log(`${type} request with ${data}`)
+        console.log(`${type} request`);
         return new Promise((resolve, reject) => {
             this._socket.emit(
                 'request',
@@ -28,7 +28,20 @@ const Connection = {
     }
 };
 
-const Geocoding = {
+const User = {
+    _visited: undefined,
+
+    getVisitedDistricts: function (callback) {
+        Connection.request('Visited', {})
+            .then(districts => {
+                this._visited = districts;
+                callback();
+            })
+            .catch(error => {
+                ScreenManager.message(error);
+            });
+    },
+
     determineCurrentPos: function () {
         function success(pos) {
             const latitude = pos.coords.latitude;
@@ -42,7 +55,7 @@ const Geocoding = {
                     let bdl;
                     let is_city_district = true;
 
-                    // Find out if adminstrion
+                    // Find out if administration
                     for (let i = 0; i < location.data.length; i++) {
                         if (location.data[i].types[0] === "administrative_area_level_3") {
                             is_city_district = false;
@@ -83,8 +96,39 @@ const Geocoding = {
 };
 
 const ScreenManager = {
-    colorVisitedDistricts: function (){
-        return;
+    colorDistricts: function (districts) {
+        for (const [key, value] of Object.entries(districts)) {
+            let id = key.replace(/ /g, '_');
+            document.getElementById(id).classList.add('bg-primary');
+        }
+    },
+
+    initializeTooltips: function (districts, visited){
+        for (let i = 0; i < districts.length; i++) {
+            // set initial attributes for all paths
+            districts[i].setAttribute('data-bs-toggle', 'tooltip');
+
+            // determine name and discovered status
+            let district_discovered = 'unentdeckt';
+            let district_name = districts[i].id.replace(/_/g, ' ');
+            for (const [key, value] of Object.entries(visited)) {
+                if (district_name === key) {
+                    district_discovered = value;
+                }
+            }
+
+            // tooltip
+            let options = {
+                animation: true,
+                html: true,
+                title: `<b>${district_name}</b><br/><i>${district_discovered}</i>`,
+            };
+            let tooltip = new bootstrap.Tooltip(districts[i], options);
+        }
+    },
+
+    message: function (msg) {
+        //Todo
     },
 
     init: function () {
@@ -107,17 +151,10 @@ const ScreenManager = {
 
         // discover
         discover_btn.addEventListener('click', () => {
-            Geocoding.determineCurrentPos(() => {
+            User.determineCurrentPos(() => {
 
                 }
             );
-
-            /*let options = {
-                animation: true,
-                html: true,
-                title: `<b>${dname}</b><br/><i>${123}</i>`,
-            };
-            let tooltip = new bootstrap.Tooltip(document.getElementById(dname), options);*/
         });
 
 
@@ -170,28 +207,16 @@ const ScreenManager = {
             isPanning = false;
         });
 
-        // initialize tooltip with bootstrap/popper.js
-        for (let i = 0; i < districts.length; i++) {
-            // set initial attributes for all paths
-            districts[i].setAttribute('data-bs-toggle', 'tooltip');
-
-            // determine title
-            let district_discovered = 'unentdeckt';
-            let district_name = districts[i].id.replace(/_/g, ' ');
-
-            // tooltip
-            let options = {
-                animation: true,
-                html: true,
-                title: `<b>${district_name}</b><br/><i>${district_discovered}</i>`,
-            };
-            let tooltip = new bootstrap.Tooltip(districts[i], options);
-        }
-
         // centering to original position
         center_btn.addEventListener('click', () => {
             viewBox = {x: x, y: y, w: width, h: height};
             map.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+        });
+
+        // Set up map visited
+        User.getVisitedDistricts( () => {
+                this.colorDistricts(User._visited);
+                this.initializeTooltips(districts, User._visited)
         });
     }
 };

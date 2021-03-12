@@ -9,7 +9,7 @@ body {
 }
 
 #map path:hover {
-    fill: #4b0657;
+    fill: #b1d9ff !important;
     stroke-width: 1;
 }
 
@@ -32,4 +32,8 @@ body {
     display: flex;
     align-self: center;
     justify-self: center;
+}
+
+.bg-primary{
+    fill: #0d6efd !important
 }
