@@ -407,17 +407,82 @@ all_districts = [
     "Miesbach"
 ]
 
-def toJSON(list, name):
-    exception_count = 0
+corresponding_BL = [
+    "NI", "NI", "BY", "NW", "SL", "NW", "BY", "NW", "BY", "NI", "NI", "BY", "BY", "BW", "BW", "BW", "BW", "BW", "BY",
+    "BY", "SH", "BY", "TH",
+    "NI", "NI", "BY", "BY", "BY", "BY", "BY", "HE", "SN", "SN", "SN", "HE", "RP", "RP", "BY", "BY", "BY", "BY", "BY",
+    "BY", "RP", "RP", "RP",
+    "BW", "NW", "BB", "HE", "RP", "BW", "BW", "NI", "NI", "BW", "NI", "RP", "NW", "BB", "SN", "ST", "ST", "NW", "NW",
+    "NW", "NI", "NW", "NW",
+    "NW", "NW", "NW", "NW", "NW", "NW", "RP", "NW", "BW", "BY", "NI", "RP", "NI", "NI", "BY", "BY", "BW", "BW", "BW",
+    "BW", "NI", "BY", "NW",
+    "NW", "NW", "NI", "BY", "BW", "MV", "SH", "BY", "TH", "HE", "BB", "HE", "SN", "BY", "NI", "NI", "NI", "BB", "BY",
+    "BB", "BB", "BY", "HE",
+    "NI", "ST", "RP", "BY", "HE", "NW", "BW", "TH", "SH", "BB", "SH", "BB", "BB", "BR", "BR", "NI", "ST", "NI", "BY",
+    "BE", "NW", "RP", "NW",
+    "RP", "BY", "RP", "SN", "HE", "BB", "BY", "BY", "NI", "NI", "SH", "BB", "NW", "BW", "BY", "BY", "NI", "SH", "BY",
+    "MV", "SH", "NW", "TH",
+    "HE", "BB", "BY", "SL", "SH", "BB", "RP", "BY", "BW", "NW", "BY", "RP", "TH", "RP", "TH", "HE", "BW", "BW", "BY",
+    "BY", "BY", "HE", "BY",
+    "NI", "TH", "NI", "BY", "NI", "TH", "BY", "RP", "RP", "NW", "SH", "NW", "NW", "NI", "TH", "BY", "TH", "BY", "BY",
+    "BY", "HE", "TH", "TH",
+    "TH", "TH", "BY", "NW", "NW", "TH", "BW", "BY", "BY", "RP", "RP", "BY", "HE", "NW", "BW", "BY", "BY", "BY", "NW",
+    "BY", "BY", "BW", "HE",
+    "NI", "NW", "BW", "MV", "BW", "NW", "BW", "NW", "NW", "HE", "BY", "NW", "TH", "HE", "BY", "BB", "BY", "BY", "NW",
+    "BW", "RP", "NI", "HE",
+    "HE", "RP", "NW", "BY", "BW", "HE", "MV", "RP", "BW", "ST", "BY", "BY", "BW", "NI", "BY", "BY", "BY", "BY", "NW",
+    "BY", "ST", "SH", "ST",
+    "NI", "BY", "RP", "RP", "SN", "SH", "TH", "SH", "SH", "TH", "SN", "BY", "NW", "NW", "BW", "BY", "BW", "BB", "BW",
+    "SH", "SN", "SH", "ST",
+    "RP", "BY", "RP", "NW", "NI", "RP", "NW", "BY", "ST", "BW", "TH", "BW", "RP", "MV", "RP", "NI", "RP", "BY", "SH",
+    "NI", "BY", "NW", "HE",
+    "NI", "NI", "BW", "HE", "NI", "TH", "SL", "NW", "SL", "TH", "BY", "BY", "SL", "NW", "NW", "RP", "SN", "BY", "NW",
+    "HE", "SN", "NW", "BB",
+    "HE", "BY", "MV", "BW", "HE", "MV", "NI", "NI", "NW", "BY", "SN", "BW", "RP", "ST", "BY", "BW", "BW", "BW", "BW",
+    "RP", "BY", "TH", "RP",
+    "BY", "BY", "SL", "RP", "HE", "BW", "ST", "BB", "NI", "BY", "BY", "BY", "BY", "ST", "NW", "BY", "BB", "BW", "HA",
+    "NI", "NI", "MV", "NI",
+    "BY", "BY", "BY", "TH", "BW", "HE", "BY", "SH", "SN", "BY"
+]
+
+BL = {
+    "BW": "Baden-Württemberg",
+    "BY": "Bayern",
+    "RP": "Rheinland-Pfalz",
+    "NW": "Nordrhein-Westfalen",
+    "SL": "Saarland",
+    "HE": "Hessen",
+    "NI": "Niedersachsen",
+    "SH": "Schleswig-Holstein",
+    "MV": "Mecklenburg-Vorpommern",
+    "BE": "Berlin",
+    "HA": "Hamburg",
+    "BR": "Bremen",
+    "ST": "Sachsen-Anhalt",
+    "SN": "Sachsen",
+    "BB": "Brandenburg",
+    "TH": "Thüringen"
+}
+
+
+def toJSON(district_list, corresponding_states, filename):
     districts = {}
+    data = []
 
-    for _district in sorted(list):
+    for i, _district in enumerate(district_list):
         district = _district.replace("_", " ")
-        districts[district] = "unexplored"
+        state = BL[corresponding_states[i]]
+        data.append({
+            "district": district,
+            "state": state,
+            "status": "unexplored"
+        })
+    districts["districts"] = sorted(data, key=lambda x: x["district"])
 
-    filename = name + ".json"
+    filename += ".json"
     with open(filename, 'w', encoding='utf-8') as outfile:
         json.dump(districts, outfile, ensure_ascii=False)
 
 
-toJSON(all_districts, 'districts')
+toJSON(all_districts, corresponding_BL, 'districts')
+print(len(all_districts), len(corresponding_BL))
