@@ -29,129 +29,170 @@ const Connection = {
 };
 
 const User = {
-    _visited: undefined,    // list of Strings
-    _districts: undefined,  // list of Objects
-    _current: undefined,    // String
-    _distribution: {
-        "Baden-Württemberg": [],
-        "Bayern": [],
-        "Rheinland-Pfalz": [],
-        "Nordrhein-Westfalen": [],
-        "Saarland": [],
-        "Hessen": [],
-        "Niedersachsen": [],
-        "Schleswig-Holstein": [],
-        "Mecklenburg-Vorpommern": [],
-        "Berlin": [],
-        "Hamburg": [],
-        "Bremen": [],
-        "Sachsen-Anhalt": [],
-        "Sachsen": [],
-        "Brandenburg": [],
-        "Thüringen": []
-    },
-    _BL : {
-        "Baden-Württemberg": "BW",
-        "Bayern": "BY",
-        "Rheinland-Pfalz": "RP",
-        "Nordrhein-Westfalen": "NW",
-        "Saarland": "SL",
-        "Hessen": "HE",
-        "Niedersachsen": "NI",
-        "Schleswig-Holstein": "SH",
-        "Mecklenburg-Vorpommern": "MV",
-        "Berlin": "BE",
-        "Hamburg": "HA",
-        "Bremen": "BR",
-        "Sachsen-Anhalt": "ST",
-        "Sachsen": "SN",
-        "Brandenburg": "BB",
-        "Thüringen": "TH"
-    },
+        _districts: undefined,                  // list of Objects (whole database)
+        _visited: undefined,                    // list of Strings (districts)
+        _distribution: {
+            "Baden-Württemberg": [],
+            "Bayern": [],
+            "Rheinland-Pfalz": [],
+            "Nordrhein-Westfalen": [],
+            "Saarland": [],
+            "Hessen": [],
+            "Niedersachsen": [],
+            "Schleswig-Holstein": [],
+            "Mecklenburg-Vorpommern": [],
+            "Berlin": [],
+            "Hamburg": [],
+            "Bremen": [],
+            "Sachsen-Anhalt": [],
+            "Sachsen": [],
+            "Brandenburg": [],
+            "Thüringen": []
+        },                   // Object (visited districts per state)
+        _current: undefined,                    // String (district)
+        _last_discovery: "-",
+        _BL: {
+            "Baden-Württemberg": "BW",
+            "Bayern": "BY",
+            "Rheinland-Pfalz": "RP",
+            "Nordrhein-Westfalen": "NW",
+            "Saarland": "SL",
+            "Hessen": "HE",
+            "Niedersachsen": "NI",
+            "Schleswig-Holstein": "SH",
+            "Mecklenburg-Vorpommern": "MV",
+            "Berlin": "BE",
+            "Hamburg": "HA",
+            "Bremen": "BR",
+            "Sachsen-Anhalt": "ST",
+            "Sachsen": "SN",
+            "Brandenburg": "BB",
+            "Thüringen": "TH"
+        },   // Object (conversion from Abbreviation to full state name)
 
-    setUserAttributes: function (districts, callback) {
-        let visited = [];
-        let distribution = this._distribution;
+        setUserAttributes: function (districts, callback) {
+            let visited = [];
+            let distribution = {
+                "Baden-Württemberg": [],
+                "Bayern": [],
+                "Rheinland-Pfalz": [],
+                "Nordrhein-Westfalen": [],
+                "Saarland": [],
+                "Hessen": [],
+                "Niedersachsen": [],
+                "Schleswig-Holstein": [],
+                "Mecklenburg-Vorpommern": [],
+                "Berlin": [],
+                "Hamburg": [],
+                "Bremen": [],
+                "Sachsen-Anhalt": [],
+                "Sachsen": [],
+                "Brandenburg": [],
+                "Thüringen": []
+            };
 
-        for (let i = 0; i < districts.length; i++) {
-            if (districts[i]["status"] !== "unexplored") {
-                visited.push(districts[i]["district"]);
-                distribution[districts[i]["state"]].push(districts[i]["district"]);
+            for (let i = 0; i < districts.length; i++) {
+                if (districts[i]["status"] !== "unexplored") {
+                    visited.push(districts[i]["district"]);
+                    distribution[districts[i]["state"]].push(districts[i]["district"]);
+                }
             }
-        }
-        this._visited = visited;
-        this._distribution = distribution;
-        callback()
-    },
+            this._visited = visited;
+            this._distribution = distribution;
+            callback();
+        },
 
-    getAllDistricts: function (callback) {
-        Connection.request('All districts', {})
-            .then(districts => {
-                this._districts = districts;
-                this.setUserAttributes(districts, callback);
-            })
-            .catch(error => {
-                ScreenManager.message(error);
-            });
-    },
+        getAllDistricts: function (callback) {
+            Connection.request('All districts', {})
+                .then(districts => {
+                    this._districts = districts;
+                    this.setUserAttributes(districts, callback);
+                })
+                .catch(error => {
+                    ScreenManager.message(error, "bg-danger");
+                });
+        },
 
-    determineCurrentPos: function (callback) {
-        function success(pos) {
-            const latitude = pos.coords.latitude;
-            const longitude = pos.coords.longitude;
+        determineCurrentPos: function (callback) {
+            function success(pos) {
+                const latitude = pos.coords.latitude;
+                const longitude = pos.coords.longitude;
 
-            let latlng = latitude + "," + longitude;
+                let latlng = latitude + "," + longitude;
 
-            Connection.request("Reverse-Geocoding", latlng)
-                .then(location => {
-                    let area_selector = "administrative_area_level_3";
+                Connection.request("Reverse-Geocoding", latlng)
+                    .then(location => {
+                        let area_selector = "administrative_area_level_3";
 
-                    // Find out if administration
-                    for (let i = 0; i < location.data.length; i++) {
-                        if (location.data[i].types[0] === "administrative_area_level_3") {
-                            area_selector = "administrative_area_level_2";
+                        // Find out if administration
+                        for (let i = 0; i < location.data.length; i++) {
+                            if (location.data[i].types[0] === "administrative_area_level_3") {
+                                area_selector = "administrative_area_level_2";
+                            }
                         }
-                    }
 
-                    for (let i = 0; i < location.data.length; i++) {
-                        if (location.data[i].types[0] === area_selector) {
-                            this._current = location.data[i].long_name;
+                        for (let i = 0; i < location.data.length; i++) {
+                            if (location.data[i].types[0] === area_selector) {
+                                User._last_discovery = location.data[i].long_name;
+                            }
                         }
-                    }
-                    callback(this._current);
+                        callback(User._last_discovery);
+                    })
+                    .catch(error => {
+                        console.log(error);
+                    });
+            }
+
+            function error() {
+                console.log('Retrieving location has failed!');
+            }
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(success, error);
+            } else {
+                console.log('This browser does not support Geolocation!');
+            }
+        },
+
+        resetDatabase: function () {
+            Connection.request('Reset Database', {})
+                .then(result => {
+                    ScreenManager.message(result, "bg-primary");
+                    User._last_discovery = "-";
+                    ScreenManager.refreshDistricts();
                 })
                 .catch(error => {
                     console.log(error);
                 });
-        }
-
-        function error() {
-            console.log('Retrieving location has failed!');
-        }
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(success, error);
-        } else {
-            console.log('This browser does not support Geolocation!');
-        }
-    },
-
-    getStateDistribution(){
-        Connection.request('State distribution', {})
-            .then(result => {
-                this._distribution = result
-            })
-            .catch(error => {
-                ScreenManager.message(error)
-            })
+        },
     }
-};
+;
 
 const ScreenManager = {
-    colorDistricts: function (districts) {
-        for (let i = 0; i < districts.length; i++) {
-            let id = districts[i].replace(/ /g, '_');
-            document.getElementById(id).classList.add('bg-primary');
+    initializeStatistics: function (_last_discovery, _distribution) {
+        let last_discovery = document.getElementById('last-discovery');
+        let amount_visited = document.getElementById('amount-visited');
+        let amount = 0;
+
+        for (const [key, value] of Object.entries(_distribution)) {
+            amount += value.length;
+        }
+
+        amount_visited.innerHTML = amount + " / 401";
+        last_discovery.innerHTML = _last_discovery;
+    },
+
+    colorVisitedDistricts: function (visited) {
+        // reset color
+        let colored = document.getElementsByClassName('visited');
+        for (let i = 0; i < colored.length; i++) {
+            colored[i].classList.remove('visited');
+        }
+
+        // color
+        for (let i = 0; i < visited.length; i++) {
+            let id = visited[i].replace(/ /g, '_');
+            document.getElementById(id).classList.add('visited');
         }
     },
 
@@ -179,34 +220,44 @@ const ScreenManager = {
         }
     },
 
-    message: function (msg) {
-        //Todo
+    message: function (msg, class_type) {
+        document.getElementById('message').classList.remove('bg-primary', 'bg-danger', 'bg-success');
+        document.getElementById('message').classList.add(class_type);
+        document.getElementById('message-body').innerHTML = msg;
+        let toastElList = [].slice.call(document.querySelectorAll('.toast'));
+        let toastList = toastElList.map(function (toastEl) {
+            return new bootstrap.Toast(toastEl);
+        });
+        toastList.forEach(toast => toast.show());
     },
 
-    refreshDistricts() {
+    refreshDistricts: function () {
         User.getAllDistricts(() => {
-            this.colorDistricts(User._visited);
+            this.colorVisitedDistricts(User._visited);
             this.initializeTooltips(User._districts);
+            this.initializeStatistics(User._last_discovery, User._distribution);
         });
     },
 
-    processDiscover() {
+    processDiscover: function () {
         User.determineCurrentPos(current => {
                 console.log(`Current district: ${current}`);
                 Connection.request('Discover', {"current": current})
                     .then(result => {
-                        if (result) {
-                            this.refreshDistricts();
-                        } else {
-                            this.message(result);
-                        }
+                        ScreenManager.refreshDistricts();
+                        ScreenManager.message(result, "bg-success");
                     })
                     .catch(error => {
-                        this.message(error);
+                        ScreenManager.message(error, "bg-danger");
                     });
             }
         );
     },
+
+    processReset: function (){
+        User.resetDatabase()
+    },
+
 
     init: function () {
         // elements
@@ -214,6 +265,7 @@ const ScreenManager = {
         const map_cont = document.getElementById('map-container');
         const center_btn = document.getElementById('center-btn');
         const discover_btn = document.getElementById('discover-btn');
+        const reset_btn = document.getElementById('reset-btn');
         const districts = document.getElementsByClassName('district');
         const profile_name = document.getElementById('profile-name');
 
@@ -228,6 +280,9 @@ const ScreenManager = {
 
         // discover
         discover_btn.addEventListener('click', this.processDiscover);
+
+        // reset
+        reset_btn.addEventListener('click', this.processReset);
 
         // zoom-in-out
         map_cont.addEventListener("wheel", (e) => {
@@ -286,6 +341,8 @@ const ScreenManager = {
 
         // Set up map visited
         this.refreshDistricts();
+
+
     }
 };
 

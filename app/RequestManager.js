@@ -16,6 +16,9 @@ const RequestManager = {
 
             case "State distribution":
                 return this.getStateDistribution();
+
+            case "Reset Database":
+                return this.resetDatabase();
         }
     },
 
@@ -62,9 +65,9 @@ const RequestManager = {
                 }
             }
             if (undiscovered) {
-                resolve(true);
+                resolve(`Congratulation! You just discovered <b>${current}</b>`);
             } else {
-                reject('Already discovered');
+                reject(`<b>${current}</b> already discovered!`);
             }
         });
     },
@@ -87,8 +90,11 @@ const RequestManager = {
     },
 
     resetDatabase: function () {
-        let raw_districts = fs.readFileSync('./app/init.json');
-        fs.writeFileSync('./app/districts.json', raw_districts)
+        fs.createReadStream('./app/init.json').pipe(fs.createWriteStream('./app/districts.json'));
+
+        return new Promise((resolve, reject) => {
+            resolve("Reset successful!")
+        })
     },
 
     getStateDistribution: function (){
