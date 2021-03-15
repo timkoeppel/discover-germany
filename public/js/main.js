@@ -29,20 +29,73 @@ const Connection = {
 };
 
 const User = {
-    _visited: undefined,
+    _visited: undefined,    // list of Strings
+    _districts: undefined,  // list of Objects
+    _current: undefined,    // String
+    _distribution: {
+        "Baden-Württemberg": [],
+        "Bayern": [],
+        "Rheinland-Pfalz": [],
+        "Nordrhein-Westfalen": [],
+        "Saarland": [],
+        "Hessen": [],
+        "Niedersachsen": [],
+        "Schleswig-Holstein": [],
+        "Mecklenburg-Vorpommern": [],
+        "Berlin": [],
+        "Hamburg": [],
+        "Bremen": [],
+        "Sachsen-Anhalt": [],
+        "Sachsen": [],
+        "Brandenburg": [],
+        "Thüringen": []
+    },
+    _BL : {
+        "Baden-Württemberg": "BW",
+        "Bayern": "BY",
+        "Rheinland-Pfalz": "RP",
+        "Nordrhein-Westfalen": "NW",
+        "Saarland": "SL",
+        "Hessen": "HE",
+        "Niedersachsen": "NI",
+        "Schleswig-Holstein": "SH",
+        "Mecklenburg-Vorpommern": "MV",
+        "Berlin": "BE",
+        "Hamburg": "HA",
+        "Bremen": "BR",
+        "Sachsen-Anhalt": "ST",
+        "Sachsen": "SN",
+        "Brandenburg": "BB",
+        "Thüringen": "TH"
+    },
 
-    getVisitedDistricts: function (callback) {
-        Connection.request('Visited', {})
+    setUserAttributes: function (districts, callback) {
+        let visited = [];
+        let distribution = this._distribution;
+
+        for (let i = 0; i < districts.length; i++) {
+            if (districts[i]["status"] !== "unexplored") {
+                visited.push(districts[i]["district"]);
+                distribution[districts[i]["state"]].push(districts[i]["district"]);
+            }
+        }
+        this._visited = visited;
+        this._distribution = distribution;
+        callback()
+    },
+
+    getAllDistricts: function (callback) {
+        Connection.request('All districts', {})
             .then(districts => {
-                this._visited = districts;
-                callback();
+                this._districts = districts;
+                this.setUserAttributes(districts, callback);
             })
             .catch(error => {
                 ScreenManager.message(error);
             });
     },
 
-    determineCurrentPos: function () {
+    determineCurrentPos: function (callback) {
         function success(pos) {
             const latitude = pos.coords.latitude;
             const longitude = pos.coords.longitude;
@@ -51,32 +104,21 @@ const User = {
 
             Connection.request("Reverse-Geocoding", latlng)
                 .then(location => {
-                    let lkr;
-                    let bdl;
-                    let is_city_district = true;
+                    let area_selector = "administrative_area_level_3";
 
                     // Find out if administration
                     for (let i = 0; i < location.data.length; i++) {
                         if (location.data[i].types[0] === "administrative_area_level_3") {
-                            is_city_district = false;
+                            area_selector = "administrative_area_level_2";
                         }
                     }
 
                     for (let i = 0; i < location.data.length; i++) {
-                        if (is_city_district) {
-                            if (location.data[i].types[0] === "administrative_area_level_2") {
-                                lkr = location.data[i].long_name;
-                            } else if (location.data[i].types[0] === "administrative_area_level_1") {
-                                bdl = location.data[i].long_name;
-                            }
-                        } else {
-                            if (location.data[i].types[0] === "administrative_area_level_3") {
-                                lkr = location.data[i].long_name;
-                            } else if (location.data[i].types[0] === "administrative_area_level_1") {
-                                bdl = location.data[i].long_name;
-                            }
+                        if (location.data[i].types[0] === area_selector) {
+                            this._current = location.data[i].long_name;
                         }
                     }
+                    callback(this._current);
                 })
                 .catch(error => {
                     console.log(error);
@@ -92,43 +134,78 @@ const User = {
         } else {
             console.log('This browser does not support Geolocation!');
         }
+    },
+
+    getStateDistribution(){
+        Connection.request('State distribution', {})
+            .then(result => {
+                this._distribution = result
+            })
+            .catch(error => {
+                ScreenManager.message(error)
+            })
     }
 };
 
 const ScreenManager = {
     colorDistricts: function (districts) {
-        for (const [key, value] of Object.entries(districts)) {
-            let id = key.replace(/ /g, '_');
+        for (let i = 0; i < districts.length; i++) {
+            let id = districts[i].replace(/ /g, '_');
             document.getElementById(id).classList.add('bg-primary');
         }
     },
 
-    initializeTooltips: function (districts, visited){
+    initializeTooltips: function (districts) {
+        let DOM_districts = document.getElementsByClassName('district');
+
+        // works because the 401 DOM_districts and data districts
+        // have same order (alphabetically)
         for (let i = 0; i < districts.length; i++) {
-            // set initial attributes for all paths
-            districts[i].setAttribute('data-bs-toggle', 'tooltip');
+            // required attribute for tooltips
+            let DOM_district = DOM_districts[i];
+            DOM_district.setAttribute('data-bs-toggle', 'tooltip');
 
             // determine name and discovered status
-            let district_discovered = 'unentdeckt';
-            let district_name = districts[i].id.replace(/_/g, ' ');
-            for (const [key, value] of Object.entries(visited)) {
-                if (district_name === key) {
-                    district_discovered = value;
-                }
-            }
+            let district_status = districts[i]["status"];
+            let district_name = districts[i]["district"] + ", " + User._BL[districts[i]["state"]];
 
             // tooltip
             let options = {
                 animation: true,
                 html: true,
-                title: `<b>${district_name}</b><br/><i>${district_discovered}</i>`,
+                title: `<b>${district_name}</b><br/><i>${district_status}</i>`,
             };
-            let tooltip = new bootstrap.Tooltip(districts[i], options);
+            let tooltip = new bootstrap.Tooltip(DOM_district, options);
         }
     },
 
     message: function (msg) {
         //Todo
+    },
+
+    refreshDistricts() {
+        User.getAllDistricts(() => {
+            this.colorDistricts(User._visited);
+            this.initializeTooltips(User._districts);
+        });
+    },
+
+    processDiscover() {
+        User.determineCurrentPos(current => {
+                console.log(`Current district: ${current}`);
+                Connection.request('Discover', {"current": current})
+                    .then(result => {
+                        if (result) {
+                            this.refreshDistricts();
+                        } else {
+                            this.message(result);
+                        }
+                    })
+                    .catch(error => {
+                        this.message(error);
+                    });
+            }
+        );
     },
 
     init: function () {
@@ -150,13 +227,7 @@ const ScreenManager = {
         let scale = 1;
 
         // discover
-        discover_btn.addEventListener('click', () => {
-            User.determineCurrentPos(() => {
-
-                }
-            );
-        });
-
+        discover_btn.addEventListener('click', this.processDiscover);
 
         // zoom-in-out
         map_cont.addEventListener("wheel", (e) => {
@@ -214,10 +285,7 @@ const ScreenManager = {
         });
 
         // Set up map visited
-        User.getVisitedDistricts( () => {
-                this.colorDistricts(User._visited);
-                this.initializeTooltips(districts, User._visited)
-        });
+        this.refreshDistricts();
     }
 };
 
